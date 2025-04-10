@@ -2,10 +2,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
+#include <string.h>
+#include <ctype.h>
 typedef struct {
     char x, y;
     char health;
     char symbol;
+    int allowedMovementUnits;
     bool has_moved, has_attacked;
 } Player;
 
@@ -34,6 +37,10 @@ void SpawnFurniture(GameState *game);
 void makeDoor(GameState *game);
 void makeWalls(GameState *game);
 void spawnPlayers(GameState *game);
+void turnBasedSystem(GameState *game);
+void handleUserMovement(GameState *game);
+void handleUserAttack(GameState *game);
+bool isAcceptedMovementCharacter(char c);
 int main(void) {
     GameState game;
     game.monster_count = 0;
@@ -68,17 +75,38 @@ int main(void) {
             printf("You can only choose 1 of each class!\n");
             i--;
             continue;
- }
-}
+        }
+        switch (game.players[i].symbol) {
+            {
+                case 'B':
+                    game.players[i].health = 8;
+                    game.players[i].allowedMovementUnits = 8;
+                    break;
+                case 'D':
+                    game.players[i].health = 7;
+                    game.players[i].allowedMovementUnits = 6;
+                    break;
+                case 'E':
+                    game.players[i].health = 6;
+                    game.players[i].allowedMovementUnits = 12;
+                    break;
+                case 'W':
+                    game.players[i].health = 4;
+                    game.players[i].allowedMovementUnits = 10;
+                    break;
+            }
+            }
+        }
+        
 
     do {
         GenerateRoom(&game);
-        printf("ekane save to room!");
         if (game.level > 1){
         makeWalls(&game);
         }
-         SpawnFurniture(&game);
-         SpawnEnemies(&game);
+        SpawnFurniture(&game);
+        SpawnEnemies(&game);
+        spawnPlayers(&game);
         DisplayMap(&game);
         printf("dwse 'K' gia epomeno level!\n");
         scanf(" %c", &bobmarley);
@@ -97,7 +125,27 @@ int main(void) {
     
     return 0;
 }
-
+void spawnPlayers(GameState *game){
+    int failSafeAttempts;
+    int i;
+    int randx, randy;
+    for (i = 0; i < game->player_count; i++) {
+        failSafeAttempts = 25;
+        do {
+            randy = rand() % 9; 
+            randx = (rand() % game->maprow);
+            if (randx >= 0 && randx < game->maprow && randy >= 0 && randy < game->mapcol) {
+                if (game->map[randx][randy] == '.') {
+                    game->map[randx][randy] = game->players[i].symbol;
+                    game->players[i].x = randx;
+                    game->players[i].y = randy;
+                    break;
+                }
+            }
+            failSafeAttempts--;
+        } while (game->map[randx][randy] != '.' && failSafeAttempts > 0);
+    }
+}
 void SpawnEnemies(GameState* game){
          int failSafeAttempts;
          int mCount;
@@ -266,3 +314,40 @@ void makeWalls(GameState *game){
     startingRow += 7;
 }
 }
+bool isAcceptedMovementCharacter(char c) {
+    const char acceptedChars[] = "UuDdLlRr";
+    return strchr(acceptedChars, c) != NULL;
+}
+void turnBasedSystem(GameState *game) {
+    int i;
+    char actionBuffer[10];
+    int selection;
+    for (i = 0; i < game->player_count; i++) {
+        game->players[i].has_moved = false;
+        game->players[i].has_attacked = false;
+        printf("%c has %d health, what's his next action?\n", game->players[i].symbol, game->players[i].health);
+        printf("1. Move\n");
+        printf("2. Attack\n");
+        printf("3. Skip\n");
+        scanf("%c",&selection);
+        switch (selection)
+        {
+        case 1:
+            handleUserMovement(game);
+            break;
+        case 2:
+            handleUserAttack(game);
+            break;
+        case 3:
+            continue;   
+        default:
+            i--;
+            continue;
+        }
+    }
+    for (i = 0; i < game->monster_count; i++) {
+        game->enemies[i].healthSymbol = game->enemies[i].health + '0';
+    }
+}
+void handleUserMovement(GameState *game){}
+void handleUserAttack(GameState *game){}
