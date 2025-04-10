@@ -49,12 +49,28 @@ int main(void) {
     }
     game.level = 1;
     game.difficulty = 0;
-    game.player_count = 1;
+    game.player_count = 0;
     while (game.difficulty < 1 || game.difficulty > 3) {
         printf("Enter Game difficulty, Please enter a number between 1 to 3.\n");
         scanf("%d", &game.difficulty);
     }
-    printf("ekane save to difficulty!");
+    while (game.player_count < 1 || game.player_count > 4) {
+        printf("Enter number of heroes in the game. (1-4)\n");
+        scanf("%d", &game.player_count);
+    }
+    for (int i = 0; i < game.player_count; i++) {
+        game.players = realloc(game.players, (i + 1) * sizeof(Player));
+        printf("Enter class for player %d (B for barbarian, W for wizard, E for elf and D for dwarf):\n", i + 1);
+        do{
+        scanf(" %c", &game.players[i].symbol);
+        } while (game.players[i].symbol != 'B' && game.players[i].symbol != 'W' && game.players[i].symbol != 'E' && game.players[i].symbol != 'D');
+        if (game.players[i].symbol == game.players[i - 1].symbol || game.players[i].symbol == game.players[i - 2].symbol || game.players[i].symbol == game.players[i - 3].symbol) {
+            printf("You can only choose 1 of each class!\n");
+            i--;
+            continue;
+ }
+}
+
     do {
         GenerateRoom(&game);
         printf("ekane save to room!");
