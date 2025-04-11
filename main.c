@@ -38,9 +38,11 @@ void makeDoor(GameState *game);
 void makeWalls(GameState *game);
 void spawnPlayers(GameState *game);
 void turnBasedSystem(GameState *game);
-void handleUserMovement(GameState *game);
-void handleUserAttack(GameState *game);
+bool handleUserMovement(GameState *game,int i);
+bool moveHero(GameState *game,int i, char c,int mDigits);
+void handleUserAttack(GameState *game,int i);
 bool isAcceptedMovementCharacter(char c);
+bool isAcceptedAttackCharacter(char c);
 int main(void) {
     GameState game;
     game.monster_count = 0;
@@ -48,6 +50,7 @@ int main(void) {
     game.maprow = 5;
     game.mapcol = 9;
     game.enemies = (Enemy*)malloc(sizeof(Enemy));
+    game.players = (Player*)malloc(sizeof(Player));
     char bobmarley;
     srand(time(NULL));
     game.map = (char**)malloc(game.maprow * sizeof(char*));
@@ -81,6 +84,7 @@ int main(void) {
                 case 'B':
                     game.players[i].health = 8;
                     game.players[i].allowedMovementUnits = 8;
+                    
                     break;
                 case 'D':
                     game.players[i].health = 7;
@@ -108,6 +112,11 @@ int main(void) {
         SpawnEnemies(&game);
         spawnPlayers(&game);
         DisplayMap(&game);
+        while (game.player_count > 0 || game.monster_count > 0)
+        {
+          turnBasedSystem(&game);
+        }
+        
         printf("dwse 'K' gia epomeno level!\n");
         scanf(" %c", &bobmarley);
         if(bobmarley == 'w'){
@@ -314,14 +323,18 @@ void makeWalls(GameState *game){
     startingRow += 7;
 }
 }
-bool isAcceptedMovementCharacter(char c) {
-    const char acceptedChars[] = "UuDdLlRr";
+bool isAcceptedAttackCharacter(char c) {
+    const char acceptedChars[] = "Aa";
+    return strchr(acceptedChars, c) != NULL;
+}
+bool isAcceptedMovementCharacter(char c){
+    const char acceptedChars[] = "UuLlRrDd";
     return strchr(acceptedChars, c) != NULL;
 }
 void turnBasedSystem(GameState *game) {
     int i;
-    char actionBuffer[10];
     int selection;
+    bool flag = false;
     for (i = 0; i < game->player_count; i++) {
         game->players[i].has_moved = false;
         game->players[i].has_attacked = false;
@@ -329,25 +342,138 @@ void turnBasedSystem(GameState *game) {
         printf("1. Move\n");
         printf("2. Attack\n");
         printf("3. Skip\n");
-        scanf("%c",&selection);
-        switch (selection)
-        {
-        case 1:
-            handleUserMovement(game);
-            break;
-        case 2:
-            handleUserAttack(game);
-            break;
-        case 3:
-            continue;   
-        default:
+        do {
+            scanf("%d", &selection);
+        } while (selection < 1 || selection > 3);
+        if (selection == 1) {
+            if (game->players[i].has_moved == false) {
+            do{
+                handleUserMovement(game,i);
+            }while (handleUserMovement(game,i) == false);
+        }
+        else{
+            printf(" %c already moved this turn!\n",game->players[i].symbol);
             i--;
             continue;
         }
-    }
-    for (i = 0; i < game->monster_count; i++) {
-        game->enemies[i].healthSymbol = game->enemies[i].health + '0';
+        }
+        else if (selection == 2){
+            handleUserAttack(game,i);
+        }
+        else if (selection == 3)
+        {
+            continue;
+        }
+        DisplayMap(game);
     }
 }
-void handleUserMovement(GameState *game){}
-void handleUserAttack(GameState *game){}
+bool handleUserMovement(GameState *game, int i){
+    int movCount = 0;
+        char actionBuffer[15];
+        printf("Enter movement command:\n");
+        scanf("%s", actionBuffer);
+        if (actionBuffer[0] != game->players[i].symbol){ // an evale diaforetiko symvolo to ksanakanei
+            return false;
+        }
+        if (actionBuffer[1] != '>'){ // an evale diaforetiko apto > to ksanakanei
+            return false;
+        }
+        if (!isAcceptedMovementCharacter(actionBuffer[2])){
+            printf("Invalid movement character! Use (Uu/Dd/Ll/Rr)\n");
+            return false;
+        }
+        for(int j = 2; j < strlen(actionBuffer); j += 2){
+            if (!isAcceptedMovementCharacter(actionBuffer[j])){
+                printf("Invalid movement character! Use (Uu/Dd/Ll/Rr)\n");
+                return false;
+            }
+            char direction = actionBuffer[j];
+            j++;
+            if (!isdigit(actionBuffer[j])){
+                printf("Invalid movement number! Use a number!\n");
+                return false;
+            }
+            int moveUnits = actionBuffer[j] - '0';
+            if (isdigit(actionBuffer[j+1])){
+                moveUnits = moveUnits * 10 + (actionBuffer[j] + '0');
+                j++;
+            }
+            movCount += moveUnits;
+            if (movCount > game->players[i].allowedMovementUnits){
+                return false;
+              }
+            if(!moveHero(game,i,direction,moveUnits)){
+                printf("Invalid movement path!\n");
+                return false;
+            }
+            }
+            game->players[i].has_moved = true;
+            return true;
+          
+    }
+void handleUserAttack(GameState *game,int i){}
+bool moveHero(GameState *game,int i, char c,int mDigits){
+    char** map = game->map;
+    int x = game->players[i].x;
+    int y = game->players[i].y;
+    switch (c)
+    {
+    case 'U':
+    case 'u':
+        for(int i = 0; i < mDigits; i++){
+            if(map[x-i][y] != '.'){
+                return false;
+            }
+        }
+        map[x][y] = '.';
+        x -= mDigits;
+        map[x][y] = game->players[i].symbol;
+        return true;
+        break;
+    case 'D':
+    case 'd':
+        if (x + mDigits >= game->maprow) return false;
+        for(int i = 1; i <= mDigits; i++){
+            if(map[x+i][y] != '.'){
+                return false;
+            }
+        }
+        map[x][y] = '.';
+        x += mDigits;
+        game->players[i].x = x;
+        map[x][y] = game->players[i].symbol;
+        return true;
+        break;
+    case 'L':
+    case 'l':
+        if (y - mDigits < 0) return false;
+        for(int i = 1; i <= mDigits; i++){
+            if(map[x][y-i] != '.'){
+                return false;
+            }
+        }
+        map[x][y] = '.';
+        y -= mDigits;
+        game->players[i].y = y;
+        map[x][y] = game->players[i].symbol;
+        return true;
+        break;
+    case 'R':
+    case 'r':
+        if (y + mDigits >= game->mapcol) return false;
+        for(int i = 1; i <= mDigits; i++){
+            if(map[x][y+i] != '.'){
+                return false;
+            }
+        }
+        map[x][y] = '.';
+        y += mDigits;
+        game->players[i].y = y;
+        map[x][y] = game->players[i].symbol;
+        return true;
+        break;
+    default:
+        return false;
+        break;
+    }
+}
